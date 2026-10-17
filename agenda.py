@@ -1,30 +1,8 @@
-import sqlite3
-
-DB_FILE = "agenda.db"
-
-
-def connect(db_file=DB_FILE):
-    connection = sqlite3.connect(db_file) # opens the file and creates the table if it doesn't exist yet.
-    connection.row_factory = sqlite3.Row  # lets us read columns by name
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            completed INTEGER NOT NULL DEFAULT 0
-        )
-        """
-    )
-    connection.commit()
-    return connection
-
-
-def get_tasks(connection):
-    return connection.execute("SELECT id, title, completed FROM tasks ORDER BY id").fetchall()
+import database
 
 
 def display_tasks(connection):
-    tasks = get_tasks(connection)
+    tasks = database.get_tasks(connection)
     if not tasks:
         print("Your agenda is empty.")
         return
@@ -34,64 +12,57 @@ def display_tasks(connection):
         print(f"{number}. [{status}] {task['title']}")
 
 
+def ask_for_task_id(connection, action):
+    """Show the tasks, ask for a number, and return that task's database id (or None)."""
+    tasks = database.get_tasks(connection)
+    if not tasks:
+        print(f"There are no tasks to {action}.")
+        return None
+
+    display_tasks(connection)
+    try:
+        number = int(input(f"Enter the task number to {action}: "))
+    except ValueError:
+        print("Please enter a number.")
+        return None
+
+    if number < 1 or number > len(tasks):
+        print("That task number does not exist.")
+        return None
+
+    return tasks[number - 1]["id"]
+
+
 def add_task(connection):
     title = input("What do you need to do? ").strip()
     if not title:
         print("A task cannot be empty.")
         return
 
-    connection.execute("INSERT INTO tasks (title) VALUES (?)", (title,))
-    connection.commit()
+    database.insert_task(connection, title)
     print("Task added.")
 
 
 def complete_task(connection):
-    if not get_tasks(connection):
-        print("There are no tasks to complete.")
+    task_id = ask_for_task_id(connection, "complete")
+    if task_id is None:
         return
 
-    display_tasks(connection)
-    try:
-        task_number = int(input("Enter the task number to complete: "))
-    except ValueError:
-        print("Please enter a number.")
-        return
-
-    tasks = get_tasks(connection)
-    if task_number < 1 or task_number > len(tasks):
-        print("That task number does not exist.")
-        return
-
-    task_id = tasks[task_number - 1]["id"]
-    connection.execute("UPDATE tasks SET completed = 1 WHERE id = ?", (task_id,))
-    connection.commit()
+    database.mark_completed(connection, task_id)
     print("Task completed.")
 
+
 def delete_task(connection):
-    if not get_tasks(connection):
-        print("There are no tasks to delete.")
+    task_id = ask_for_task_id(connection, "delete")
+    if task_id is None:
         return
 
-    display_tasks(connection)
-    try:
-        task_number = int(input("Enter the task number to delete: "))
-    except ValueError:
-        print("Please enter a number.")
-        return
-
-    tasks = get_tasks(connection)
-    if task_number < 1 or task_number > len(tasks):
-        print("That task number does not exist.")
-        return
-
-    task_id = tasks[task_number - 1]["id"]
-    connection.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
-    connection.commit()
-
+    database.remove_task(connection, task_id)
     print("Task deleted.")
 
+
 def main():
-    connection = connect()
+    connection = database.connect()
 
     while True:
         print("\nMy AI Agenda")

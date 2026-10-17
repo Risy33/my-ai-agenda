@@ -24,6 +24,7 @@ To inspect the data: `sqlite3 agenda.db "SELECT * FROM tasks;"`
 ### Concepts in this milestone
 
 - The `sqlite3` module and a `tasks` table (`id`, `title`, `completed`).
+- Code is split by responsibility: `database.py` holds all SQL, `agenda.py` holds the menu and terminal input/output.
 - SQL `INSERT`, `SELECT`, `UPDATE`, and `DELETE`, with `?` placeholders for safe input.
 - Functions separate adding, displaying, completing, and deleting tasks.
 - `enumerate` numbers the displayed list; the chosen number is mapped back to the database ID.
