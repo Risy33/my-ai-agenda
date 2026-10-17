@@ -83,6 +83,8 @@ def main():
         elif choice == "4":
             delete_task(connection)
         elif choice == "5":
+            unfinished = [task for task in database.get_tasks(connection) if not task["completed"]]
+            print(f"There are still {len(unfinished)} tasks not completed.")
             connection.close()
             print("Goodbye!")
             break
