@@ -7,9 +7,9 @@ This project is also my way of learning Python and understanding how Large Langu
 
 The main goal is to build a genuinely useful application while understanding the code and AI concepts behind it.
 
-## Current milestone: terminal agenda
+## Current milestone: terminal agenda with SQLite storage
 
-The first version is a small Python program that can add tasks, show them, and mark them complete. Tasks live in memory, so they reset when the program exits. This keeps the first lesson focused on Python rather than databases or AI.
+A small Python program that can add tasks, show them, mark them complete, and delete them. Tasks are saved in a local SQLite file (`agenda.db`, created automatically and ignored by Git), so they survive restarts.
 
 Run it with Python 3.10 or newer:
 
@@ -17,17 +17,19 @@ Run it with Python 3.10 or newer:
 python agenda.py
 ```
 
-Choose an option from the menu. Try adding a task, listing tasks, completing one by its number, and then quitting. Restart the program to observe that the tasks were not saved.
+Choose an option from the menu. Try adding a task, completing or deleting one by its number, and then quitting. Restart the program to see that the tasks were saved. The numbers shown are positions in the list (1, 2, 3...); the program maps them to the real database IDs.
+
+To inspect the data: `sqlite3 agenda.db "SELECT * FROM tasks;"`
 
 ### Concepts in this milestone
 
-- Lists and dictionaries store the tasks.
-- Functions separate adding, displaying, and completing tasks.
-- A loop keeps the menu running; conditions handle the selected action.
-- `input()` and `print()` provide a simple terminal interface.
+- The `sqlite3` module and a `tasks` table (`id`, `title`, `completed`).
+- SQL `INSERT`, `SELECT`, `UPDATE`, and `DELETE`, with `?` placeholders for safe input.
+- Functions separate adding, displaying, completing, and deleting tasks.
+- `enumerate` numbers the displayed list; the chosen number is mapped back to the database ID.
 - Input checks handle blank task names and invalid task numbers.
 
-The next milestone is persistent storage, followed by dates and planning features. The AI assistant comes after those foundations: it will propose structured tasks for you to review, and only confirmed, validated tasks will be saved.
+The next milestone is due dates, followed by planning features. The AI assistant comes after those foundations: it will propose structured tasks for you to review, and only confirmed, validated tasks will be saved.
 
 I am a beginner, so the project must grow incrementally. Do not build the entire application at once.
 
