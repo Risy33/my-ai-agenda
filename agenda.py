@@ -1,3 +1,5 @@
+from datetime import date
+
 import database
 
 
@@ -9,7 +11,21 @@ def display_tasks(connection):
 
     for number, task in enumerate(tasks, start=1):
         status = "x" if task["completed"] else " "
-        print(f"{number}. [{status}] {task['title']}")
+        due = f" (due {task['due_date']})" if task["due_date"] else ""
+        print(f"{number}. [{status}] {task['title']}{due}")
+
+
+def ask_for_due_date(prompt="Due date (YYYY-MM-DD, or press Enter for none): "):
+    """Ask for an optional due date. Return 'YYYY-MM-DD', None (no date), or False (invalid)."""
+    text = input(prompt).strip()
+    if not text:
+        return None
+
+    try:
+        return date.fromisoformat(text).isoformat()
+    except ValueError:
+        print("That is not a valid date. Use the format YYYY-MM-DD, for example 2026-12-31.")
+        return False
 
 
 def ask_for_task_id(connection, action):
@@ -39,7 +55,11 @@ def add_task(connection):
         print("A task cannot be empty.")
         return
 
-    database.insert_task(connection, title)
+    due_date = ask_for_due_date()
+    if due_date is False:
+        return
+
+    database.insert_task(connection, title, due_date)
     print("Task added.")
 
 
@@ -61,6 +81,22 @@ def delete_task(connection):
     print("Task deleted.")
 
 
+def edit_due_date(connection):
+    task_id = ask_for_task_id(connection, "edit")
+    if task_id is None:
+        return
+
+    due_date = ask_for_due_date("New due date (YYYY-MM-DD, or press Enter to keep the current one): ")
+    if due_date is False:
+        return
+    if due_date is None:
+        print("Keeping the current due date.")
+        return
+
+    database.update_due_date(connection, task_id, due_date)
+    print("Due date updated.")
+
+
 def main():
     connection = database.connect()
 
@@ -70,7 +106,8 @@ def main():
         print("2. Show tasks")
         print("3. Complete a task")
         print("4. Delete a task")
-        print("5. Quit")
+        print("5. Edit a task's due date")
+        print("6. Quit")
 
         choice = input("Choose an option: ").strip()
 
@@ -83,13 +120,15 @@ def main():
         elif choice == "4":
             delete_task(connection)
         elif choice == "5":
+            edit_due_date(connection)
+        elif choice == "6":
             unfinished = [task for task in database.get_tasks(connection) if not task["completed"]]
             print(f"There are still {len(unfinished)} tasks not completed.")
             connection.close()
             print("Goodbye!")
             break
         else:
-            print("Choose 1, 2, 3, 4, or 5.")
+            print("Choose 1, 2, 3, 4, 5, or 6.")
 
 
 if __name__ == "__main__":

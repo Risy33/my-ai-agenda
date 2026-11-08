@@ -29,8 +29,11 @@ To inspect the data: `sqlite3 agenda.db "SELECT * FROM tasks;"`
 - Functions separate adding, displaying, completing, and deleting tasks.
 - `enumerate` numbers the displayed list; the chosen number is mapped back to the database ID.
 - Input checks handle blank task names and invalid task numbers.
+- Due dates: an optional `due_date` column stored as text in `YYYY-MM-DD` format, validated with `datetime.date.fromisoformat`. `connect()` adds the column to older databases automatically (`ALTER TABLE`).
 
-The next milestone is due dates, followed by planning features. The AI assistant comes after those foundations: it will propose structured tasks for you to review, and only confirmed, validated tasks will be saved.
+Due dates are in progress: tasks can be given a due date when added, the date is shown in the list, and it can be edited later (pressing Enter keeps the current date). Still to come: sorting by date and spotting overdue tasks. After that come the planning features (today's agenda, next seven days).
+
+The AI assistant comes after those foundations: it will propose structured tasks for you to review, and only confirmed, validated tasks will be saved.
 
 I am a beginner, so the project must grow incrementally. Do not build the entire application at once.
 
