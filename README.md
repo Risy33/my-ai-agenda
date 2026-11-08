@@ -31,7 +31,7 @@ To inspect the data: `sqlite3 agenda.db "SELECT * FROM tasks;"`
 - Input checks handle blank task names and invalid task numbers.
 - Due dates: an optional `due_date` column stored as text in `YYYY-MM-DD` format, validated with `datetime.date.fromisoformat`. `connect()` adds the column to older databases automatically (`ALTER TABLE`).
 
-Due dates are in progress: tasks can be given a due date when added, the date is shown in the list, and it can be edited later (pressing Enter keeps the current date). Still to come: sorting by date and spotting overdue tasks. After that come the planning features (today's agenda, next seven days).
+Due dates are in progress: tasks can now be given a due date and it is shown in the list. Still to come: editing a due date, sorting by date, and spotting overdue tasks. After that come the planning features (today's agenda, next seven days).
 
 The AI assistant comes after those foundations: it will propose structured tasks for you to review, and only confirmed, validated tasks will be saved.
 
