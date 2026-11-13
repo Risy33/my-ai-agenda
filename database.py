@@ -20,17 +20,40 @@ def connect(db_file=DB_FILE):
     if "due_date" not in columns:
         connection.execute("ALTER TABLE tasks ADD COLUMN due_date TEXT")  # "YYYY-MM-DD" or NULL
     connection.commit()
+    columns = [row["name"] for row in connection.execute("PRAGMA table_info(tasks)")]
+    if "priority" not in columns:
+        connection.execute("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'")  # "low", "medium" or "high"
+    connection.commit()
     return connection
 
 
 def get_tasks(connection):
+    # Earliest due date first; tasks without a date (NULL) go last. id keeps ties stable.
     return connection.execute(
-        "SELECT id, title, completed, due_date FROM tasks ORDER BY id"
+        "SELECT id, title, completed, due_date, priority FROM tasks ORDER BY due_date IS NULL, due_date, id"
     ).fetchall()
 
 
-def insert_task(connection, title, due_date=None):
-    connection.execute("INSERT INTO tasks (title, due_date) VALUES (?, ?)", (title, due_date))
+def get_overdue_tasks(connection, today):
+    """Unfinished tasks whose due date is before `today` ('YYYY-MM-DD')."""
+    return connection.execute(
+        "SELECT id, title, completed, due_date, priority FROM tasks "
+        "WHERE completed = 0 AND due_date < ? ORDER BY due_date, id",
+        (today,),
+    ).fetchall()
+
+
+def get_tasks_due_between(connection, start, end):
+    """Unfinished tasks due from `start` to `end`, both included ('YYYY-MM-DD')."""
+    return connection.execute(
+        "SELECT id, title, completed, due_date, priority FROM tasks "
+        "WHERE completed = 0 AND due_date BETWEEN ? AND ? ORDER BY due_date, id",
+        (start, end),
+    ).fetchall()
+
+
+def insert_task(connection, title, due_date=None, priority='medium'):
+    connection.execute("INSERT INTO tasks (title, due_date, priority) VALUES (?, ?, ?)", (title, due_date, priority))
     connection.commit()
 
 
@@ -48,6 +71,6 @@ def remove_task(connection, task_id):
     connection.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
     connection.commit()
 
-def update_due_date(connection, task_id, due_date):
-    connection.execute("UPDATE tasks SET due_date = ? WHERE id = ?", (due_date, task_id))
+def update_priority(connection, task_id, priority):
+    connection.execute("UPDATE tasks SET priority = ? WHERE id = ?", (priority, task_id))
     connection.commit()

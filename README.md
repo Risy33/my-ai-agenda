@@ -9,7 +9,7 @@ The main goal is to build a genuinely useful application while understanding the
 
 ## Current milestone: terminal agenda with SQLite storage
 
-A small Python program that can add tasks, show them, mark them complete, and delete them. Tasks are saved in a local SQLite file (`agenda.db`, created automatically and ignored by Git), so they survive restarts.
+A small Python program that can add tasks, show them, mark them complete, delete them, edit due dates, and show a daily and weekly view. Tasks are saved in a local SQLite file (`agenda.db`, created automatically and ignored by Git), so they survive restarts.
 
 Run it with Python 3.10 or newer:
 
@@ -19,7 +19,16 @@ python agenda.py
 
 Choose an option from the menu. Try adding a task, completing or deleting one by its number, and then quitting. Restart the program to see that the tasks were saved. The numbers shown are positions in the list (1, 2, 3...); the program maps them to the real database IDs.
 
+Tasks are listed by due date (earliest first, tasks without a date last). Unfinished tasks whose due date has passed are marked `OVERDUE`. When editing a due date, type a new date, `clear` to remove it, or press Enter to keep it. "Today's agenda" shows overdue tasks plus tasks due today; "Next seven days" shows unfinished tasks due from today through the following six days, grouped by day.
+
 To inspect the data: `sqlite3 agenda.db "SELECT * FROM tasks;"`
+
+To run the tests (pytest):
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
 
 ### Concepts in this milestone
 
@@ -31,9 +40,13 @@ To inspect the data: `sqlite3 agenda.db "SELECT * FROM tasks;"`
 - Input checks handle blank task names and invalid task numbers.
 - Due dates: an optional `due_date` column stored as text in `YYYY-MM-DD` format, validated with `datetime.date.fromisoformat`. `connect()` adds the column to older databases automatically (`ALTER TABLE`).
 
-Due dates are in progress: tasks can now be given a due date and it is shown in the list. Still to come: editing a due date, sorting by date, and spotting overdue tasks. After that come the planning features (today's agenda, next seven days).
+- Sorting in SQL with `ORDER BY`, and querying date ranges with `BETWEEN` (ISO dates compare correctly as text).
+- `datetime.date` and `timedelta` for "today" and "seven days from now".
+- Testing: `test_agenda.py` uses pytest with an in-memory SQLite database (`":memory:"`), so tests never touch `agenda.db`.
 
-The AI assistant comes after those foundations: it will propose structured tasks for you to review, and only confirmed, validated tasks will be saved.
+Due dates are done: tasks can be given, edited, and cleared; the list is sorted by date and overdue tasks are flagged. Today's agenda and the next seven days are in place. Still to come in the planning features: priorities, categories, filters, and a weekly overview. The AI assistant comes after those foundations.
+
+The AI assistant will propose structured tasks for you to review, and only confirmed, validated tasks will be saved.
 
 I am a beginner, so the project must grow incrementally. Do not build the entire application at once.
 
@@ -244,7 +257,7 @@ Keep the README updated as the project evolves.
 
 9. Initial milestone
 
-Start with the smallest useful version of the agenda. This milestone is implemented in `agenda.py`.
+Start with the smallest useful version of the agenda. This first milestone has been completed and has since grown (SQLite storage, due dates, planning views); it lives in `agenda.py` and `database.py`. The list below is the original exercise, kept for reference.
 
 Create a Python program that allows me to:
 
