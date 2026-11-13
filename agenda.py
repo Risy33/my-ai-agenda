@@ -11,8 +11,9 @@ def is_overdue(task, today):
 def format_task(task, today):
     status = "x" if task["completed"] else " "
     due = f" (due {task['due_date']})" if task["due_date"] else ""
+    category = f" [{task['category']}]" if task["category"] else ""
     overdue = " OVERDUE" if is_overdue(task, today) else ""
-    return f"[{status}] {task['title']}{due} (priority {task['priority']}){overdue}"
+    return f"[{status}] {task['title']}{due} (priority {task['priority']}){category}{overdue}"
 
 
 def display_tasks(connection):
@@ -96,8 +97,10 @@ def add_task(connection):
     priority = ask_for_priority()
     if priority is False:
         return
-    database.insert_task(connection, title, due_date, priority)
+    category = input("Category (optional): ").strip() or None
+    database.insert_task(connection, title, due_date, priority, category)
     print("Task added.")
+
 
 def edit_priority(connection):
     task_id = ask_for_task_id(connection, "edit")
@@ -117,6 +120,21 @@ def edit_priority(connection):
 
     database.update_priority(connection, task_id, priority)
     print("Priority updated.")
+
+
+def edit_category(connection):
+    task_id = ask_for_task_id(connection, "edit")
+    if task_id is None:
+        return
+
+    text = input("New category (or 'clear' to remove it, Enter to keep it): ").strip()
+    if not text:
+        print("Keeping the current category.")
+        return
+
+    category = None if text.lower() == "clear" else text
+    database.update_category(connection, task_id, category)
+    print("Category removed." if category is None else "Category updated.")
 
 
 def complete_task(connection):
@@ -201,6 +219,63 @@ def show_next_seven_days(connection, today=None):
         print(f"  - {task['title']} (priority {task['priority']})")
 
 
+def filter_tasks(connection):
+    status = input("Status filter (all, open, completed; default all): ").strip().lower() or "all"
+    if status not in ("all", "open", "completed"):
+        print("Status must be 'all', 'open', or 'completed'.")
+        return
+
+    try:
+        start_date = parse_due_date(input("Due on or after (YYYY-MM-DD, optional): "))
+        end_date = parse_due_date(input("Due on or before (YYYY-MM-DD, optional): "))
+    except ValueError:
+        print("That is not a valid date. Use the format YYYY-MM-DD, for example 2026-12-31.")
+        return
+    if start_date and end_date and start_date > end_date:
+        print("The start date must be on or before the end date.")
+        return
+
+    categories = database.get_categories(connection)
+    if categories:
+        print(f"Categories: {', '.join(categories)}")
+    category = input("Category (optional; exact match): ").strip() or None
+
+    tasks = database.get_filtered_tasks(connection, status, start_date, end_date, category)
+    if not tasks:
+        print("No tasks match those filters.")
+        return
+
+    today = date.today()
+    for number, task in enumerate(tasks, start=1):
+        print(f"{number}. {format_task(task, today)}")
+
+
+def show_weekly_overview(connection, today=None):
+    today = today or date.today()
+    start = today - timedelta(days=today.weekday())
+    end = start + timedelta(days=6)
+    tasks = database.get_filtered_tasks(
+        connection,
+        start_date=start.isoformat(),
+        end_date=end.isoformat(),
+    )
+    tasks_by_date = {}
+    for task in tasks:
+        tasks_by_date.setdefault(task["due_date"], []).append(task)
+
+    print(f"Calendar week ({start.isoformat()} to {end.isoformat()})")
+    for day_offset in range(7):
+        current_day = start + timedelta(days=day_offset)
+        day_label = f"{current_day.strftime('%A')} {current_day.isoformat()}"
+        print(f"{day_label}:")
+        day_tasks = tasks_by_date.get(current_day.isoformat(), [])
+        if not day_tasks:
+            print("  No tasks.")
+            continue
+        for task in day_tasks:
+            print(f"  - {format_task(task, today)}")
+
+
 def main():
     connection = database.connect()
 
@@ -212,9 +287,12 @@ def main():
         print("4. Delete a task")
         print("5. Edit a task's due date")
         print("6. Edit a task's priority")
-        print("7. Today's agenda")
-        print("8. Next seven days")
-        print("9. Quit")
+        print("7. Edit a task's category")
+        print("8. Today's agenda")
+        print("9. Next seven days")
+        print("10. Filter tasks")
+        print("11. Calendar-week overview")
+        print("12. Quit")
 
         choice = input("Choose an option: ").strip()
 
@@ -231,17 +309,23 @@ def main():
         elif choice == "6":
             edit_priority(connection)
         elif choice == "7":
-            show_today(connection)
+            edit_category(connection)
         elif choice == "8":
-            show_next_seven_days(connection)
+            show_today(connection)
         elif choice == "9":
+            show_next_seven_days(connection)
+        elif choice == "10":
+            filter_tasks(connection)
+        elif choice == "11":
+            show_weekly_overview(connection)
+        elif choice == "12":
             unfinished = [task for task in database.get_tasks(connection) if not task["completed"]]
             print(f"There are still {len(unfinished)} tasks not completed.")
             connection.close()
             print("Goodbye!")
             break
         else:
-            print("Choose a number from 1 to 9.")
+            print("Choose a number from 1 to 12.")
 
 
 if __name__ == "__main__":

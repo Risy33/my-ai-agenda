@@ -1,4 +1,5 @@
 from datetime import date
+import sqlite3
 
 import pytest
 
@@ -107,3 +108,78 @@ def test_parse_priority_accepts_valid_blank_and_rejects_invalid():
         agenda.parse_priority("urgent")
     with pytest.raises(ValueError):
         agenda.parse_priority("123")
+
+
+def test_category_can_be_added_and_cleared(connection):
+    database.insert_task(connection, "plan trip", category="travel")
+    task = database.get_tasks(connection)[0]
+    assert task["category"] == "travel"
+    assert "[travel]" in agenda.format_task(task, TODAY)
+
+    database.update_category(connection, task["id"], None)
+    assert database.get_tasks(connection)[0]["category"] is None
+
+
+def test_connect_migrates_existing_database_without_losing_tasks(tmp_path):
+    db_file = tmp_path / "legacy.db"
+    with sqlite3.connect(db_file) as legacy:
+        legacy.execute(
+            "CREATE TABLE tasks (id INTEGER PRIMARY KEY, title TEXT NOT NULL, "
+            "completed INTEGER NOT NULL DEFAULT 0, due_date TEXT)"
+        )
+        legacy.execute("INSERT INTO tasks (title) VALUES ('old task')")
+
+    connection = database.connect(str(db_file))
+    try:
+        task = database.get_tasks(connection)[0]
+        assert task["title"] == "old task"
+        assert task["priority"] == "medium"
+        assert task["category"] is None
+    finally:
+        connection.close()
+
+
+def test_get_filtered_tasks_combines_status_date_and_category(connection):
+    database.insert_task(connection, "finish report", "2026-11-15", category="work")
+    database.insert_task(connection, "buy tickets", "2026-11-16", category="personal")
+    database.insert_task(connection, "old work task", "2026-11-14", category="work")
+    database.insert_task(connection, "completed work", "2026-11-15", category="work")
+    completed = next(
+        task for task in database.get_tasks(connection) if task["title"] == "completed work"
+    )
+    database.mark_completed(connection, completed["id"])
+
+    result = database.get_filtered_tasks(
+        connection,
+        status="open",
+        start_date="2026-11-15",
+        end_date="2026-11-16",
+        category="work",
+    )
+
+    assert titles(result) == ["finish report"]
+
+
+def test_get_filtered_tasks_rejects_unknown_status(connection):
+    with pytest.raises(ValueError):
+        database.get_filtered_tasks(connection, status="urgent")
+
+
+def test_weekly_overview_uses_calendar_week_and_includes_completed(connection, capsys):
+    database.insert_task(connection, "monday task", "2026-11-09")
+    database.insert_task(connection, "sunday task", "2026-11-15")
+    database.insert_task(connection, "next monday", "2026-11-16")
+    database.insert_task(connection, "completed task", "2026-11-12")
+    completed = next(
+        task for task in database.get_tasks(connection) if task["title"] == "completed task"
+    )
+    database.mark_completed(connection, completed["id"])
+
+    agenda.show_weekly_overview(connection, TODAY)
+    output = capsys.readouterr().out
+
+    assert "2026-11-09 to 2026-11-15" in output
+    assert "monday task" in output
+    assert "sunday task" in output
+    assert "completed task" in output
+    assert "next monday" not in output
