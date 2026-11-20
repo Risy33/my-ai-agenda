@@ -1,5 +1,6 @@
-My AI Agenda — Python & LLM Learning Project
-1. Project vision
+# My AI Agenda — Python & LLM Learning Project
+
+## 1. Project vision
 
 I want to build my own personal agenda application using Python. The application should help me organize tasks, plan my week, and eventually interact with an AI assistant using natural language.
 
@@ -7,19 +8,30 @@ This project is also my way of learning Python and understanding how Large Langu
 
 The main goal is to build a genuinely useful application while understanding the code and AI concepts behind it.
 
+I am a beginner, so the project must grow incrementally. Do not build the entire application at once. How Copilot should teach me is described in [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
+
 ## Current milestone: terminal agenda with SQLite storage
 
-A small Python program that can add tasks, show them, mark them complete, delete them, edit due dates, priorities, and categories, and show planning views. Tasks are saved in a local SQLite file (`agenda.db`, created automatically and ignored by Git), so they survive restarts.
+A small Python program that can add tasks, show them, mark them complete (or not completed again), delete them, edit titles, due dates, priorities, and categories, and show planning views. Tasks are saved in a local SQLite file (`agenda.db`, created automatically and ignored by Git), so they survive restarts.
 
-Run it with Python 3.10 or newer:
+Run it with Python 3.9 or newer:
 
 ```bash
 python agenda.py
 ```
 
-Choose an option from the menu. Try adding a task, completing or deleting one by its number, and then quitting. Restart the program to see that the tasks were saved. The numbers shown are positions in the list (1, 2, 3...); the program maps them to the real database IDs.
+Choose an option from the menu. Try adding a task, completing or deleting one by its number, and then quitting (option 14, or Ctrl+C). Restart the program to see that the tasks were saved. The numbers shown are positions in the list (1, 2, 3...); the program maps them to the real database IDs.
 
-Tasks are listed by due date (earliest first, tasks without a date last). Unfinished tasks whose due date has passed are marked `OVERDUE`. When editing a due date or category, type a new value, `clear` to remove it, or press Enter to keep it. "Today's agenda" shows overdue tasks plus tasks due today; "Next seven days" shows unfinished tasks due from today through the following six days, grouped by day. The calendar-week overview shows all tasks due Monday through Sunday, including completed tasks. Filters can combine task status, inclusive due-date bounds, and an exact category match.
+How it behaves:
+
+- Tasks are listed by due date (earliest first, tasks without a date last). Unfinished tasks whose due date has passed are marked `OVERDUE`.
+- When adding a task, an invalid date or priority is asked for again.
+- Deleting a task asks for confirmation first.
+- When editing a title, due date, or category, type a new value or press Enter to keep it. For due dates and categories, `clear` removes the value.
+- **Today's agenda** shows overdue tasks plus tasks due today.
+- **Next seven days** shows unfinished tasks due from today through the following six days, grouped by day.
+- **Calendar-week overview** shows all tasks due Monday through Sunday, including completed tasks.
+- **Filter tasks** combines task status, inclusive due-date bounds, and a category (upper/lower case is ignored).
 
 To inspect the data: `sqlite3 agenda.db "SELECT * FROM tasks;"`
 
@@ -30,261 +42,242 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
+### How the code is organized
+
+| File | Responsibility |
+| --- | --- |
+| `agenda.py` | User interface: the terminal menu, `input()` and `print()`. |
+| `tasks.py` | Application logic: validating titles, dates, priorities, and categories; deciding what is overdue. |
+| `database.py` | Data storage: every SQL statement, plus creating and upgrading the database. |
+| `test_agenda.py` | Automated tests. |
+
 ### Concepts in this milestone
 
-- The `sqlite3` module and a `tasks` table (`id`, `title`, `completed`).
-- Code is split by responsibility: `database.py` holds all SQL, `agenda.py` holds the menu and terminal input/output.
+- The `sqlite3` module and a `tasks` table (`id`, `title`, `completed`, `due_date`, `priority`, `category`).
+- Separating responsibilities: interface, logic, and storage each live in their own module.
 - SQL `INSERT`, `SELECT`, `UPDATE`, and `DELETE`, with `?` placeholders for safe input.
-- Functions separate adding, displaying, completing, and deleting tasks.
+- `CHECK` constraints, so the database itself refuses invalid data (blank titles, unknown priorities, impossible dates).
+- Schema versions with `PRAGMA user_version`: `connect()` upgrades older databases automatically, inside one transaction so it either fully succeeds or changes nothing.
 - `enumerate` numbers the displayed list; the chosen number is mapped back to the database ID.
-- Input checks handle blank task names and invalid task numbers.
-- Due dates: an optional `due_date` column stored as text in `YYYY-MM-DD` format, validated with `datetime.date.fromisoformat`. `connect()` adds the column to older databases automatically (`ALTER TABLE`).
-- Priorities (`low`, `medium`, `high`) and optional free-text categories, added to older databases by `connect()`.
-- Task filters combine status, due-date bounds, and category using parameterized SQL.
-
-- Sorting in SQL with `ORDER BY`, and querying date ranges with `BETWEEN` (ISO dates compare correctly as text).
-- `datetime.date` and `timedelta` for "today" and "seven days from now".
-- Calendar-week view using `date.weekday()` to find Monday and group tasks through Sunday.
-- Testing: `test_agenda.py` uses pytest with an in-memory SQLite database (`":memory:"`), so tests never touch `agenda.db`.
+- Error handling: functions in `tasks.py` raise `ValueError`, and the interface catches it and shows the message. `ask_until_valid()` keeps asking until the answer is valid (it receives the parsing function as an argument).
+- `try` / `except` / `finally` in `main()`: Ctrl+C exits cleanly and the database connection is always closed.
+- Due dates stored as text in `YYYY-MM-DD` format, validated with `datetime.date.fromisoformat`.
+- Sorting in SQL with `ORDER BY`, querying date ranges with `BETWEEN` (ISO dates compare correctly as text), and case-insensitive matching with `COLLATE NOCASE`.
+- `datetime.date` and `timedelta` for "today" and "seven days from now"; `date.weekday()` to find Monday for the calendar week.
+- Testing: pytest with an in-memory SQLite database (`":memory:"`), so tests never touch `agenda.db`; `monkeypatch` replaces `input()` to test menu flows; `parametrize` runs one test with several inputs.
 
 The personal-planning features are in place: due dates, priorities, categories, filters, today's agenda, the next seven days, and a calendar-week overview. The AI assistant comes after those foundations.
 
-The AI assistant will propose structured tasks for you to review, and only confirmed, validated tasks will be saved.
+The AI assistant will propose structured tasks for you to review, and only confirmed tasks that pass the checks in `tasks.py` will be saved.
 
-I am a beginner, so the project must grow incrementally. Do not build the entire application at once.
-
-2. Learning objectives
+## 2. Learning objectives
 
 By the end of this project, I want to understand:
 
-Python
-Variables, data types, lists, and dictionaries.
-Conditions, loops, and functions.
-Modules, packages, and virtual environments.
-Dates and times.
-Reading and writing files.
-Error handling and debugging.
-Classes and object-oriented programming when appropriate.
-Automated testing and clean code.
-Application development
-Building a simple user interface.
-Separating the interface, business logic, and data storage.
-Persisting data in a database.
-Using Git and GitHub.
-Managing dependencies and configuration.
-Debugging and testing an application.
-LLMs and AI
-What LLMs are and how they generate text.
-Tokens, context windows, and prompts.
-Calling an LLM through an API.
-Structured outputs and JSON.
-Embeddings and semantic similarity.
-Retrieval-Augmented Generation (RAG).
-Tool calling and AI agents.
-Evaluating AI responses, handling errors, and managing costs.
-Exploring transformers and attention mechanisms at a later stage.
-Experimenting with local models and model training if appropriate.
-3. Technology stack
+**Python**
+
+- Variables, data types, lists, and dictionaries.
+- Conditions, loops, and functions.
+- Modules, packages, and virtual environments.
+- Dates and times.
+- Reading and writing files.
+- Error handling and debugging.
+- Classes and object-oriented programming when appropriate.
+- Automated testing and clean code.
+
+**Application development**
+
+- Building a simple user interface.
+- Separating the interface, business logic, and data storage.
+- Persisting data in a database.
+- Using Git and GitHub.
+- Managing dependencies and configuration.
+- Debugging and testing an application.
+
+**LLMs and AI**
+
+- What LLMs are and how they generate text.
+- Tokens, context windows, and prompts.
+- Calling an LLM through an API.
+- Structured outputs and JSON.
+- Embeddings and semantic similarity.
+- Retrieval-Augmented Generation (RAG).
+- Tool calling and AI agents.
+- Evaluating AI responses, handling errors, and managing costs.
+- Exploring transformers and attention mechanisms at a later stage.
+- Experimenting with local models and model training if appropriate.
+
+## 3. Technology stack
 
 Use a simple, beginner-friendly stack.
 
-Language: Python.
-Development environment: GitHub Codespaces.
-Coding assistant: GitHub Copilot.
-Future interface: Nuxt (Vue), connected to a Python API after the core agenda works.
-Database: SQLite.
-Data validation: Python standard library initially; introduce Pydantic if it becomes useful.
-LLM integration: A provider API, introduced after the basic agenda works.
-Version control: Git and GitHub.
-Testing: pytest, introduced gradually.
+- **Language:** Python.
+- **Development environment:** GitHub Codespaces.
+- **Coding assistant:** GitHub Copilot.
+- **Interface:** a terminal menu now; later a Nuxt (Vue) web interface connected to a Python API, after the core agenda works.
+- **Database:** SQLite.
+- **Data validation:** Python standard library initially; introduce Pydantic if it becomes useful.
+- **LLM integration:** a provider API, introduced after the basic agenda works.
+- **Version control:** Git and GitHub.
+- **Testing:** pytest, introduced gradually.
 
 Prefer simple, established tools over unnecessary frameworks.
 
 Do not introduce complex infrastructure, microservices, Docker, orchestration frameworks, or vector databases until there is a clear learning or product reason to do so.
 
-4. Application features
-Version 1 — Basic agenda
-Add a task.
-Display all tasks.
-Mark a task as completed.
-Edit and delete tasks.
-Assign a due date.
-Store tasks persistently.
-Version 2 — Personal planning
-Display today's agenda.
-Display the next seven days.
-Add priorities and categories.
-Filter tasks by status, date, and category.
-Identify overdue tasks.
-Create a weekly overview.
-Version 3 — AI assistant
+## 4. Application features
+
+### Version 1 — Basic agenda ✅
+
+- Add a task.
+- Display all tasks.
+- Mark a task as completed.
+- Edit and delete tasks.
+- Assign a due date.
+- Store tasks persistently.
+
+### Version 2 — Personal planning ✅
+
+- Display today's agenda.
+- Display the next seven days.
+- Add priorities and categories.
+- Filter tasks by status, date, and category.
+- Identify overdue tasks.
+- Create a weekly overview.
+
+### Version 3 — AI assistant
 
 Allow the user to describe tasks in natural language.
 
 Example:
 
-"I need to prepare a presentation by Friday, buy groceries tomorrow, and exercise twice this week."
+> "I need to prepare a presentation by Friday, buy groceries tomorrow, and exercise twice this week."
 
 The assistant should:
 
-Interpret the request.
-Identify proposed tasks and dates.
-Return structured task data.
-Validate the proposed data.
-Ask the user to confirm.
-Save the approved tasks through normal Python application logic.
+1. Interpret the request.
+2. Identify proposed tasks and dates.
+3. Return structured task data.
+4. Validate the proposed data.
+5. Ask the user to confirm.
+6. Save the approved tasks through normal Python application logic.
 
 The application must not save arbitrary AI-generated data without validation.
 
-Version 4 — Understanding LLMs
-Experiment with different prompts.
-Examine structured outputs.
-Compare model responses.
-Learn about tokens and context limits.
-Measure response time and API usage.
-Explore embeddings and semantic search.
-Build a small RAG feature using my own agenda data.
+### Version 4 — Understanding LLMs
+
+- Experiment with different prompts.
+- Examine structured outputs.
+- Compare model responses.
+- Learn about tokens and context limits.
+- Measure response time and API usage.
+- Explore embeddings and semantic search.
+- Build a small RAG feature using my own agenda data.
 
 Example question:
 
-"What tasks have I postponed several times, and what should I prioritize this week?"
+> "What tasks have I postponed several times, and what should I prioritize this week?"
 
 The application should retrieve relevant records before asking the LLM to generate an answer.
 
-Version 5 — AI planning assistant
-Suggest a realistic weekly schedule.
-Identify conflicts and overloaded days.
-Suggest priorities based on deadlines.
-Summarize the previous week.
-Allow the assistant to request specific application tools.
-Require user approval for consequential changes.
-Version 6 — Advanced learning
+### Version 5 — AI planning assistant
+
+- Suggest a realistic weekly schedule.
+- Identify conflicts and overloaded days.
+- Suggest priorities based on deadlines.
+- Summarize the previous week.
+- Allow the assistant to request specific application tools.
+- Require user approval for consequential changes.
+
+### Version 6 — Advanced learning
 
 When the foundations are solid, explore:
 
-Transformer architecture.
-Self-attention and attention mechanisms.
-Tokenization and embeddings in more depth.
-Running a small local language model.
-Fine-tuning concepts and small experiments.
-Evaluating model quality and reliability.
+- Transformer architecture.
+- Self-attention and attention mechanisms.
+- Tokenization and embeddings in more depth.
+- Running a small local language model.
+- Fine-tuning concepts and small experiments.
+- Evaluating model quality and reliability.
 
 These are optional advanced topics, not prerequisites for building the application.
 
-5. Architecture principles
+## 5. Architecture principles
 
 Keep the initial architecture simple.
 
 Separate the application into three main responsibilities:
 
-User interface: Streamlit pages, forms, and displays.
-Application logic: Task creation, validation, planning, and business rules.
-Data and AI services: SQLite access and LLM API integration.
+- **User interface:** the terminal menu now (`agenda.py`); later, Nuxt pages, forms, and displays.
+- **Application logic:** task creation, validation, planning, and business rules (`tasks.py`).
+- **Data and AI services:** SQLite access (`database.py`) and, later, LLM API integration.
 
 Keep AI-specific code separate from the core task management logic.
 
 The basic task management features must continue working even when the LLM API is unavailable.
 
-Use SQLite as the initial database. Introduce migrations or a more advanced database only when needed.
+Use SQLite as the initial database. Keep schema changes in `database.migrate()`, and introduce a migration tool or a more advanced database only when needed.
 
-6. How I want GitHub Copilot to teach me
+## 6. How I want GitHub Copilot to teach me
 
-These instructions are important.
+Moved to [`.github/copilot-instructions.md`](.github/copilot-instructions.md), which Copilot reads automatically.
 
-Act as my Python tutor and coding partner, not just a code generator.
-
-I want to learn by building small, useful features.
-
-Follow these rules:
-
-Start by explaining the objective of each task in plain English.
-Introduce no more than one or two major new concepts at a time.
-Before writing code, explain the approach and why it is appropriate.
-Prefer small, understandable implementations over clever or overly abstract solutions.
-Explain important lines of code and new syntax.
-Give me small exercises or questions that encourage me to write some code myself.
-Let me attempt a solution before providing the complete answer when practical.
-When modifying existing code, explain which files change and why.
-Do not rewrite the entire application to implement one small feature.
-Explain errors and debugging techniques instead of simply replacing broken code.
-Ask me to run and test each feature before moving on.
-Introduce automated tests gradually.
-Explain important design trade-offs without overwhelming me with theory.
-Relate new concepts to features in my agenda.
-If I ask for a complete solution, provide it, but explain how it works.
-Never claim that code works without a reasonable way to verify it.
-
-At each milestone, summarize:
-
-What I built.
-What Python concepts I learned.
-What AI concepts I learned.
-What I should be able to explain independently.
-What the next small step will be.
-7. LLM integration and security
+## 7. LLM integration and security
 
 Follow these rules when adding AI functionality:
 
-Never hardcode API keys or credentials in source code.
-Store secrets in environment variables or GitHub Codespaces secrets.
-Never commit .env files or credentials to Git.
-Keep API calls behind a small, clearly defined Python module.
-Validate AI-generated data before using it.
-Treat model responses as untrusted input.
-Handle API errors, timeouts, and rate limits.
-Keep API costs and token usage visible during development.
-Avoid sending unnecessary personal information to external AI services.
-Require explicit user confirmation before performing important actions.
-Keep a deterministic, non-AI fallback for essential agenda operations.
+- Never hardcode API keys or credentials in source code.
+- Store secrets in environment variables or GitHub Codespaces secrets.
+- Never commit `.env` files or credentials to Git.
+- Keep API calls behind a small, clearly defined Python module.
+- Validate AI-generated data before using it.
+- Treat model responses as untrusted input.
+- Handle API errors, timeouts, and rate limits.
+- Keep API costs and token usage visible during development.
+- Avoid sending unnecessary personal information to external AI services.
+- Require explicit user confirmation before performing important actions.
+- Keep a deterministic, non-AI fallback for essential agenda operations.
 
 Use mock responses initially if that helps me learn without spending money on API calls.
 
-8. Development workflow
+## 8. Development workflow
 
 Work in small, verifiable increments.
 
 For every feature:
 
-Explain the goal.
-Identify the concepts I will learn.
-Break the task into small steps.
-Implement one step at a time.
-Explain how to run the code.
-Test the feature.
-Review what I learned.
-Commit the working changes to Git when appropriate.
+1. Explain the goal.
+2. Identify the concepts I will learn.
+3. Break the task into small steps.
+4. Implement one step at a time.
+5. Explain how to run the code.
+6. Test the feature.
+7. Review what I learned.
+8. Commit the working changes to Git when appropriate.
 
 Do not move to the next milestone until the current one works and I understand its basic implementation.
 
 Keep the README updated as the project evolves.
 
-9. Initial milestone
+## 9. Initial milestone (completed)
 
-Start with the smallest useful version of the agenda. This first milestone has been completed and has since grown (SQLite storage, due dates, planning views); it lives in `agenda.py` and `database.py`. The list below is the original exercise, kept for reference.
+The first milestone has been completed and has since grown (SQLite storage, due dates, planning views). The original exercise is kept here for reference:
 
-Create a Python program that allows me to:
+- Add a task.
+- Display all tasks.
+- Mark a task as completed.
+- Keep tasks in memory while the program is running.
 
-Add a task.
-Display all tasks.
-Mark a task as completed.
-Keep tasks in memory while the program is running.
+It used a simple terminal interface, with no LLM, database, or graphical interface, and was followed by persistent storage.
 
-Use a simple terminal interface initially if that makes the first lesson easier.
-
-Do not introduce an LLM, database, or graphical interface in this first exercise.
-
-Teach me the relevant concepts while building it. Once the basic version works, introduce persistent storage and then Streamlit.
-
-10. Definition of success
+## 10. Definition of success
 
 This project is successful if:
 
-I have an agenda application I actually use.
-I understand the main parts of its code.
-I can add a feature without relying entirely on generated code.
-I know how to debug common problems.
-I understand how the application communicates with an LLM.
-I can explain the basic principles behind embeddings, RAG, and AI tool calling.
-I have a working foundation that I can continue improving.
-
-Start with Milestone 1. Explain the first exercise before generating the code.
+- I have an agenda application I actually use.
+- I understand the main parts of its code.
+- I can add a feature without relying entirely on generated code.
+- I know how to debug common problems.
+- I understand how the application communicates with an LLM.
+- I can explain the basic principles behind embeddings, RAG, and AI tool calling.
+- I have a working foundation that I can continue improving.
