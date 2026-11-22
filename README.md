@@ -50,6 +50,8 @@ python -m pytest
 | `tasks.py` | Application logic: validating titles, dates, priorities, and categories; deciding what is overdue. |
 | `database.py` | Data storage: every SQL statement, plus creating and upgrading the database. |
 | `test_agenda.py` | Automated tests. |
+| `api.py` | Web API (FastAPI), a second interface next to the terminal menu. In progress, see below. |
+| `requirements.txt` | Packages the app needs to run (`requirements-dev.txt` holds development-only tools such as pytest). |
 
 ### Concepts in this milestone
 
@@ -69,6 +71,62 @@ python -m pytest
 The personal-planning features are in place: due dates, priorities, categories, filters, today's agenda, the next seven days, and a calendar-week overview. The AI assistant comes after those foundations.
 
 The AI assistant will propose structured tasks for you to review, and only confirmed tasks that pass the checks in `tasks.py` will be saved.
+
+## Next milestone: web API with FastAPI (in progress)
+
+**Goal:** add a web API with FastAPI as a second interface next to `agenda.py`, reusing `tasks.py` and `database.py` unchanged. This prepares the ground for the Nuxt web interface and the AI assistant (Version 3), and introduces Pydantic for data validation. The terminal app must keep working the whole time.
+
+### Setup
+
+Requires Python 3.10 or newer (FastAPI's documentation uses `str | None` syntax). The project uses Python 3.12 in a virtual environment:
+
+```bash
+python3.12 -m venv .venv          # only once
+source .venv/bin/activate         # in every new terminal
+pip install -r requirements.txt   # fastapi[standard], which includes the uvicorn server
+fastapi dev api.py                # runs the API and restarts it when a file changes
+```
+
+Then open http://127.0.0.1:8000/health or the interactive docs page at http://127.0.0.1:8000/docs. Stop the server with Ctrl+C.
+
+### Steps
+
+| Step | What to build | New concepts | Status |
+| --- | --- | --- | --- |
+| 1 | Virtual environment, install FastAPI, `api.py` with `GET /health` | HTTP request/response, endpoints, JSON, status codes, decorators | ✅ Done |
+| 2 | `GET /tasks` returns all tasks as JSON | Importing own modules, opening/closing a connection, `dict(row)`, list comprehensions | ⏭️ Next |
+| 3 | One database connection per request with `Depends` | Dependency injection; SQLite connections and threads | |
+| 4 | `POST /tasks` with a Pydantic `TaskCreate` model that reuses the checks in `tasks.py` | Pydantic models, request bodies, `ValueError` → HTTP 422 | |
+| 5 | `PATCH /tasks/{id}` (complete, edit) and `DELETE /tasks/{id}`, 404 for unknown IDs | Path parameters, HTTP methods, status codes | |
+| 6 | `GET /tasks/today`, `/tasks/week`, and `GET /tasks?status=open&category=work` | Query parameters | |
+| 7 | Tests with FastAPI's `TestClient` and an in-memory database | Testing an API, overriding dependencies | |
+| 8 | Update this README and commit | | |
+
+After this milestone, Version 3 (AI assistant) becomes a `POST /assistant/propose` endpoint that returns proposed tasks without saving them, plus a confirm call that saves them through the same checks.
+
+### What was learned in step 1
+
+- An API lets other programs (browser, Nuxt app, AI assistant) use the agenda over HTTP: a client sends a request (method + path, e.g. `GET /health`) and the server returns a response (status code + body).
+- Status codes: `2xx` worked, `4xx` client mistake (`404` Not Found, `400` Bad Request, `422` invalid data), `5xx` server bug.
+- `@app.get("/health")` is a decorator: it connects the function below it to that endpoint.
+- Endpoints `return` data instead of using `print()`: `print()` only reaches the server's terminal, never the client.
+- FastAPI converts returned dictionaries and lists to JSON automatically (`True` → `true`, `None` → `null`). A tuple becomes a JSON array.
+- `curl -i http://127.0.0.1:8000/health` shows the response headers, including `content-type: application/json`.
+
+### Where to start next time
+
+1. **Fix the open bug in `api.py`:** the `/health` line ends with a trailing comma (`return {...},`), so it returns a tuple and the JSON comes back wrapped in `[ ]`. Remove the comma and check the result.
+2. **Commit step 1** (`api.py` and `requirements.txt` are not committed yet).
+3. **Open question:** why is FastAPI in `requirements.txt` but pytest in `requirements-dev.txt`?
+4. **Step 2 exercise:** add `GET /tasks` to `api.py`:
+   - `import database` at the top.
+   - Decorate a function such as `list_tasks()` with `@app.get("/tasks")`.
+   - Open a connection with `database.connect()`, get the rows with `database.get_tasks(connection)`, convert each `sqlite3.Row` with `dict(row)` (try a list comprehension: `[something(x) for x in items]`), and return the list.
+   - Close the connection in a `finally` block, like `main()` in `agenda.py`.
+5. **Step 2 experiments:**
+   - Return the rows *without* `dict()` and read the error in the browser and the server terminal. Then put `dict()` back.
+   - Is `completed` shown as `true`/`false` or `0`/`1`? Why (see `CREATE TABLE` in `database.py`)? What would a JavaScript frontend prefer? (Step 4 fixes this with Pydantic.)
+   - Add a task with `python agenda.py`, then reload `/tasks`: both interfaces share `agenda.db`.
 
 ## 2. Learning objectives
 
@@ -114,9 +172,9 @@ Use a simple, beginner-friendly stack.
 - **Language:** Python.
 - **Development environment:** GitHub Codespaces.
 - **Coding assistant:** GitHub Copilot.
-- **Interface:** a terminal menu now; later a Nuxt (Vue) web interface connected to a Python API, after the core agenda works.
+- **Interface:** a terminal menu now, plus a web API built with FastAPI (in progress); later a Nuxt (Vue) web interface connected to that API.
 - **Database:** SQLite.
-- **Data validation:** Python standard library initially; introduce Pydantic if it becomes useful.
+- **Data validation:** Python standard library initially; Pydantic arrives with FastAPI (step 4 of the web API milestone).
 - **LLM integration:** a provider API, introduced after the basic agenda works.
 - **Version control:** Git and GitHub.
 - **Testing:** pytest, introduced gradually.
@@ -144,6 +202,14 @@ Do not introduce complex infrastructure, microservices, Docker, orchestration fr
 - Filter tasks by status, date, and category.
 - Identify overdue tasks.
 - Create a weekly overview.
+
+### Version 2.5 — Web API with FastAPI (in progress)
+
+- Expose the agenda as a web API next to the terminal menu.
+- Validate request data with Pydantic, reusing the rules in `tasks.py`.
+- Test the API with FastAPI's `TestClient`.
+
+See [Next milestone: web API with FastAPI](#next-milestone-web-api-with-fastapi-in-progress) for the step-by-step plan.
 
 ### Version 3 — AI assistant
 
